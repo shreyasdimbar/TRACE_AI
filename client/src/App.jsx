@@ -99,9 +99,17 @@ export default function App() {
   // Loading spinner while verifying token
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-app)', flexDirection: 'column', gap: 16 }}>
-        <div className="spinner" style={{ width: 32, height: 32 }} />
-        <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Verifying session...</span>
+      <div className="boot">
+        <div className="atmosphere" aria-hidden="true">
+          <span className="atm-blob atm-aqua" />
+          <span className="atm-blob atm-ice" />
+          <span className="atm-caustic" />
+        </div>
+        <div className="boot-inner">
+          <div className="logo-mark" aria-hidden="true">~</div>
+          <div className="spinner" />
+          <span>Verifying session…</span>
+        </div>
       </div>
     );
   }
@@ -120,72 +128,68 @@ export default function App() {
   const userName = user?.name || 'User';
   const userRole = user?.role === 'admin' ? 'Administrator' : 'Member';
 
+  const renderNavGroup = (items) =>
+    items.map((item) => (
+      <button
+        key={item.key}
+        className={`nav-item ${page === item.key ? 'active' : ''}`}
+        onClick={() => setPage(item.key)}
+        id={`nav-${item.key}`}
+        aria-current={page === item.key ? 'page' : undefined}
+        title={item.label}
+      >
+        <item.icon className="nav-icon" size={16} aria-hidden="true" />
+        <span style={{ flex: 1 }}>{item.label}</span>
+        {item.badge && <span className="nav-badge">{item.badge}</span>}
+      </button>
+    ));
+
   return (
-    <div className="app-layout">
-      {/* ─── SIDEBAR ─── */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <div className="logo-mark">~</div>
-            <div className="logo-text">Trace.AI</div>
-          </div>
-        </div>
+    <>
+      {/* ─── ATMOSPHERE ─── */}
+      <div className="atmosphere" aria-hidden="true">
+        <span className="atm-blob atm-aqua" />
+        <span className="atm-blob atm-ice" />
+        <span className="atm-blob atm-silver" />
+        <span className="atm-blob atm-coral" />
+        <span className="atm-caustic" />
+        <span className="atm-grain" />
+      </div>
 
-        <nav className="sidebar-nav">
-          <div className="nav-section-label">WORKSPACE</div>
-          {WORKSPACE_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              className={`nav-item ${page === item.key ? 'active' : ''}`}
-              onClick={() => setPage(item.key)}
-              id={`nav-${item.key}`}
-            >
-              <item.icon className="nav-icon" size={16} />
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.badge && <span style={{ fontSize: 10, background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: 10, color: 'var(--text-secondary)' }}>{item.badge}</span>}
-            </button>
-          ))}
-
-          <div className="nav-section-label" style={{ marginTop: 12 }}>INTEGRATIONS</div>
-          {INTEGRATION_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              className={`nav-item ${page === item.key ? 'active' : ''}`}
-              onClick={() => setPage(item.key)}
-              id={`nav-${item.key}`}
-            >
-              <item.icon className="nav-icon" size={16} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border)', padding: '16px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="user-avatar" style={{ width: 28, height: 28, fontSize: 11 }}>{userInitial}</div>
-              <div className="user-info">
-                <span className="user-name" style={{ fontSize: 13, color: 'var(--text-primary)' }}>{userName}</span>
-                <span className="user-role" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{userRole}</span>
-              </div>
+      <div className="app-layout">
+        {/* ─── SIDEBAR ─── */}
+        <aside className="sidebar">
+          <div className="sidebar-header">
+            <div className="sidebar-logo">
+              <div className="logo-mark" aria-hidden="true">~</div>
+              <div className="logo-text">Trace.AI</div>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Logout"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4, borderRadius: 6, transition: 'color 0.15s' }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--gmail)'}
-              onMouseLeave={(e) => e.target.style.color = 'var(--text-tertiary)'}
-            >
-              <LogOut size={16} />
+          </div>
+
+          <nav className="sidebar-nav" aria-label="Primary">
+            <div className="nav-section-label">Workspace</div>
+            {renderNavGroup(WORKSPACE_ITEMS)}
+            <div className="nav-section-label">Integrations</div>
+            {renderNavGroup(INTEGRATION_ITEMS)}
+          </nav>
+
+          <div className="sidebar-footer">
+            <div className="user-avatar" style={{ width: 30, height: 30, fontSize: 12 }} aria-hidden="true">
+              {userInitial}
+            </div>
+            <div className="user-info">
+              <span className="user-name">{userName}</span>
+              <span className="user-role">{userRole}</span>
+            </div>
+            <button className="icon-btn" onClick={handleLogout} title="Logout" aria-label="Log out">
+              <LogOut size={16} aria-hidden="true" />
             </button>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {/* ─── MAIN ─── */}
-      <main className="main-content">
-        {renderPage()}
-      </main>
-    </div>
+        {/* ─── MAIN ─── */}
+        <main className="main-content">{renderPage()}</main>
+      </div>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mail, Hash, FileText, Mic, Upload, X, ArrowRight, ChevronDown, Check, FolderOpen, RefreshCw } from 'lucide-react';
+import { Mail, Hash, FileText, Mic, Upload, X, ChevronDown, Check, FolderOpen, RefreshCw } from 'lucide-react';
 import { api } from '../api';
 
 function CustomSelect({ value, onChange, options }) {
@@ -12,41 +12,59 @@ function CustomSelect({ value, onChange, options }) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [ref]);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find((o) => o.value === value) || options[0];
 
   return (
     <div className="custom-select-container" ref={ref}>
-      <div 
-        className={`custom-select-trigger ${open ? 'open' : ''}`} 
+      <div
+        className={`custom-select-trigger ${open ? 'open' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen(!open);
+          }
+        }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: selectedOption.color || 'inherit' }}>{selectedOption.icon}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <span style={{ color: selectedOption.color || 'inherit', display: 'flex' }} aria-hidden="true">
+            {selectedOption.icon}
+          </span>
           <span>{selectedOption.label}</span>
-        </div>
-        <ChevronDown size={14} style={{ color: 'var(--text-tertiary)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </span>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          style={{ color: 'var(--text-tertiary)', flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.22s' }}
+        />
       </div>
 
       {open && (
-        <div className="custom-select-dropdown">
+        <div className="custom-select-dropdown" role="listbox">
           {options.map((opt) => (
-            <div 
-              key={opt.value} 
+            <div
+              key={opt.value}
               className="custom-select-item"
+              role="option"
+              aria-selected={value === opt.value}
               onClick={() => {
                 onChange(opt.value);
                 setOpen(false);
               }}
             >
-              <span style={{ color: opt.color || 'inherit', width: 20, display: 'flex', justifyContent: 'center' }}>
+              <span style={{ color: opt.color || 'inherit', width: 20, display: 'flex', justifyContent: 'center', flex: 'none' }} aria-hidden="true">
                 {opt.icon}
               </span>
-              <span style={{ flex: 1, fontWeight: value === opt.value ? '700' : '500' }}>{opt.label}</span>
-              {value === opt.value && <Check size={14} color="var(--accent-dark)" />}
+              <span style={{ flex: 1, fontWeight: value === opt.value ? 700 : 500 }}>{opt.label}</span>
+              {value === opt.value && <Check size={14} color="var(--a-400)" aria-hidden="true" />}
             </div>
           ))}
         </div>
@@ -196,45 +214,47 @@ export default function IngestPage() {
 
   return (
     <>
-      <div className="page-header" style={{ padding: '24px 32px' }}>
+      <div className="page-header">
         <div>
           <div className="page-title">Ingest Data</div>
           <div className="page-subtitle">Inject knowledge chunks into your organizational graph</div>
         </div>
-        <button 
-          className="btn btn-primary" 
-          onClick={() => { setSource('manual'); setModal('manual'); }} 
-          style={{ padding: '10px 20px', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <Upload size={16} />
-          Manual Upload
-        </button>
+        <div className="page-head-actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => { setSource('manual'); setModal('manual'); }}
+          >
+            <Upload size={16} aria-hidden="true" />
+            Manual Upload
+          </button>
+        </div>
       </div>
 
       <div className="page-body">
-        <div className="ingest-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
-          {sources.map((s, index) => (
-            <div 
-              key={s.key} 
-              className="ingest-card" 
-              onClick={s.onClick} 
-              style={{
-                animation: `staggeredFade 0.4s ease forwards`,
-                animationDelay: `${index * 0.1}s`,
-                opacity: 0,
-                border: '1px solid var(--border)',
-                transition: 'all 0.2s var(--ease)',
+        <div className="ingest-grid">
+          {sources.map((s) => (
+            <div
+              key={s.key}
+              className="ingest-card liquid-sweep"
+              role="button"
+              tabIndex={0}
+              onClick={s.onClick}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  s.onClick();
+                }
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div className={`ingest-card-icon ${s.key}`} style={{ background: 'var(--bg-tertiary)' }}>{s.icon}</div>
-                <div className={`ingest-status ${s.status}`} style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>
-                  {s.status === 'active' && <div className="status-dot" style={{ width: 6, height: 6 }} />}
+              <div className="ingest-card-top">
+                <div className={`ingest-card-icon ${s.key}`} aria-hidden="true">{s.icon}</div>
+                <div className={`ingest-status ${s.status}`}>
+                  {s.status === 'active' && <div className="status-dot" aria-hidden="true" />}
                   {s.statusLabel}
                 </div>
               </div>
-              <div className="ingest-card-title" style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{s.title}</div>
-              <div className="ingest-card-desc" style={{ fontSize: 13, lineHeight: 1.5 }}>{s.desc}</div>
+              <div className="ingest-card-title">{s.title}</div>
+              <div className="ingest-card-desc">{s.desc}</div>
             </div>
           ))}
         </div>
@@ -242,21 +262,23 @@ export default function IngestPage() {
 
       {/* ─── GMAIL MODAL ─── */}
       {modal === 'gmail' && (
-        <div className="modal-overlay" onClick={() => !loading && setModal(null)} style={{ backdropFilter: 'blur(4px)' }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ animation: 'dropDownScale 0.3s var(--ease)' }}>
+        <div className="modal-overlay" onClick={() => !loading && setModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Gmail force-sync">
             <div className="modal-header">
-              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Mail color="var(--gmail)" size={20} /> Gmail Force-Sync</div>
-              <button className="modal-close" onClick={() => setModal(null)}><X size={16} /></button>
+              <div className="modal-title"><Mail color="var(--gmail)" size={20} aria-hidden="true" /> Gmail Force-Sync</div>
+              <button className="modal-close" onClick={() => setModal(null)} aria-label="Close">
+                <X size={16} aria-hidden="true" />
+              </button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              <p className="modal-copy">
                 The ingestion engine already auto-polls Gmail every 60 seconds. Push this to trigger an immediate, manual sync of the 10 latest threads.
               </p>
             </div>
-            <div className="modal-footer" style={{ borderTop: 'none', paddingTop: 0 }}>
+            <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleGmailFetch} disabled={loading}>
-                {loading ? <div className="spinner border-spinner" /> : <><Mail size={15} /> Force Sync</>}
+                {loading ? <div className="spinner border-spinner" /> : <><Mail size={15} aria-hidden="true" /> Force Sync</>}
               </button>
             </div>
           </div>
@@ -270,63 +292,68 @@ export default function IngestPage() {
 
       {/* ─── GOOGLE DOCS MODAL ─── */}
       {modal === 'gdocs' && (
-        <div className="modal-overlay" onClick={() => !driveLoading && setModal(null)} style={{ backdropFilter: 'blur(4px)' }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 650, animation: 'dropDownScale 0.3s var(--ease)' }}>
+        <div className="modal-overlay" onClick={() => !driveLoading && setModal(null)}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Google Drive documents">
             <div className="modal-header">
-              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FolderOpen color="var(--docs)" size={20} /> Google Drive — Company Docs
+              <div className="modal-title">
+                <FolderOpen color="var(--docs)" size={20} aria-hidden="true" /> Google Drive — Company Docs
               </div>
-              <button className="modal-close" onClick={() => setModal(null)}><X size={18} /></button>
+              <button className="modal-close" onClick={() => setModal(null)} aria-label="Close">
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
-            <div className="modal-body" style={{ maxHeight: 400, overflowY: 'auto' }}>
+            <div className="modal-body" style={{ maxHeight: 400 }}>
               {driveLoading && driveFiles.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto 12px' }} />
-                  <div>Scanning Drive folder...</div>
+                <div className="scan-state">
+                  <div className="spinner" />
+                  <div>Scanning Drive folder…</div>
                 </div>
               ) : driveFiles.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>📂</div>
+                <div className="scan-state">
+                  <div className="glyph" aria-hidden="true">📂</div>
                   <div>No Google Docs found in the folder.</div>
-                  <div style={{ fontSize: 12, marginTop: 8 }}>Make sure OAuth has Drive scope. Visit <a href="http://localhost:5000/auth/google" target="_blank" rel="noreferrer" style={{ color: 'var(--docs)' }}>/auth/google</a> to re-authenticate.</div>
+                  <div className="hint">
+                    Make sure OAuth has Drive scope. Visit{' '}
+                    <a href="http://localhost:5000/auth/google" target="_blank" rel="noreferrer">/auth/google</a>{' '}
+                    to re-authenticate.
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+                <>
+                  <div className="modal-note" style={{ marginBottom: 10 }}>
                     Found <strong>{driveFiles.length}</strong> Google Docs in your company folder
                   </div>
-                  {driveFiles.map((f, i) => (
-                    <div key={f.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 14px', borderRadius: 10,
-                      background: f.alreadyIngested ? 'var(--success-bg)' : 'var(--bg-tertiary)',
-                      border: '1px solid var(--border)',
-                    }}>
-                      <FileText size={16} color={f.alreadyIngested ? 'var(--success)' : 'var(--docs)'} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                          by {f.owner} • {new Date(f.modifiedTime).toLocaleDateString()}
+                  <div className="drive-list">
+                    {driveFiles.map((f) => (
+                      <div key={f.id} className={`drive-row ${f.alreadyIngested ? 'is-synced' : ''}`}>
+                        <FileText size={16} className="drive-icon" aria-hidden="true" />
+                        <div className="drive-text">
+                          <div className="drive-name">{f.name}</div>
+                          <div className="drive-meta">
+                            by {f.owner} • {new Date(f.modifiedTime).toLocaleDateString()}
+                          </div>
                         </div>
+                        {f.alreadyIngested && <span className="drive-flag">Synced</span>}
                       </div>
-                      {f.alreadyIngested && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase' }}>Synced</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               {syncResult && (
-                <div style={{ marginTop: 16, padding: 12, background: 'var(--success-bg)', borderRadius: 8, fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                  ✅ Ingested {syncResult.ingested_count} new docs{syncResult.skipped_count > 0 ? ` • Skipped ${syncResult.skipped_count} (already synced)` : ''}
+                <div className="drive-summary">
+                  <span aria-hidden="true">✅</span>
+                  <span>
+                    Ingested {syncResult.ingested_count} new docs
+                    {syncResult.skipped_count > 0 ? ` • Skipped ${syncResult.skipped_count} (already synced)` : ''}
+                  </span>
                 </div>
               )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Close</button>
               <button className="btn btn-primary" onClick={handleSyncGDocs} disabled={driveLoading || driveFiles.length === 0}>
-                {driveLoading ? <div className="spinner" style={{ width: 16, height: 16 }} /> : <><RefreshCw size={15} /> Sync All Docs</>}
+                {driveLoading ? <div className="spinner border-spinner" /> : <><RefreshCw size={15} aria-hidden="true" /> Sync All Docs</>}
               </button>
             </div>
           </div>
@@ -335,59 +362,50 @@ export default function IngestPage() {
 
       {/* ─── MANUAL INGEST MODAL ─── */}
       {modal === 'manual' && (
-        <div className="modal-overlay" onClick={() => !loading && setModal(null)} style={{ backdropFilter: 'blur(4px)' }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 600, animation: 'dropDownScale 0.3s var(--ease)' }}>
-            <div className="modal-header" style={{ padding: '24px 32px 16px', borderBottom: 'none' }}>
-              <div className="modal-title" style={{ fontSize: 20, fontWeight: 700 }}>
-                Knowledge Upload
-              </div>
-              <button className="modal-close" onClick={() => setModal(null)}><X size={18} /></button>
+        <div className="modal-overlay" onClick={() => !loading && setModal(null)}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Knowledge upload">
+            <div className="modal-header">
+              <div className="modal-title">Knowledge Upload</div>
+              <button className="modal-close" onClick={() => setModal(null)} aria-label="Close">
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
-            
-            <div className="modal-body" style={{ padding: '0 32px' }}>
-              <div className="form-group" style={{ marginBottom: 24 }}>
-                <label className="form-label" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Ingestion Source</label>
-                <CustomSelect 
-                  value={source} 
-                  onChange={setSource}
-                  options={sourceOptions}
-                />
+
+            <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <span className="form-label">Ingestion Source</span>
+                <CustomSelect value={source} onChange={setSource} options={sourceOptions} />
               </div>
-              
-              <div className="form-group" style={{ marginBottom: 24 }}>
-                <label className="form-label" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Document Title</label>
+
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label className="form-label" htmlFor="ingest-title">Document Title</label>
                 <input
+                  id="ingest-title"
                   className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Q3 Pipeline Strategy Meeting"
-                  style={{ fontSize: 15, padding: '14px 16px', borderRadius: 'var(--radius-md)' }}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: 8 }}>
-                <label className="form-label" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Raw Context</label>
+              <div className="form-group">
+                <label className="form-label" htmlFor="ingest-content">Raw Context</label>
                 <textarea
+                  id="ingest-content"
                   className="input"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Paste the raw text block, transcript log, or documentation here..."
-                  style={{ minHeight: 200, fontSize: 14, lineHeight: 1.6, padding: '16px', borderRadius: 'var(--radius-md)', resize: 'vertical' }}
+                  placeholder="Paste the raw text block, transcript log, or documentation here…"
                 />
               </div>
             </div>
-            
-            <div className="modal-footer" style={{ padding: '24px 32px', borderTop: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>This will be processed by the LLM before storing.</span>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button className="btn btn-secondary" onClick={() => setModal(null)} style={{ borderRadius: 'var(--radius-md)' }}>Cancel</button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleManualIngest}
-                  disabled={loading || !title.trim() || !content.trim()}
-                  style={{ borderRadius: 'var(--radius-md)', padding: '10px 24px' }}
-                >
-                  {loading ? <div className="spinner border-spinner" /> : <span style={{ fontWeight: 600 }}>Analyze & Ingest</span>}
+
+            <div className="modal-footer modal-footer-split">
+              <span className="modal-note">This will be processed by the LLM before storing.</span>
+              <div className="modal-footer-group">
+                <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleManualIngest} disabled={loading || !title.trim() || !content.trim()}>
+                  {loading ? <div className="spinner border-spinner" /> : <span>Analyze &amp; Ingest</span>}
                 </button>
               </div>
             </div>
@@ -398,7 +416,7 @@ export default function IngestPage() {
       {/* ─── TOAST ─── */}
       {toast && (
         <div className="toast-container">
-          <div className={`toast ${toast.type}`} style={{ animation: 'staggeredFade 0.3s ease forwards' }}>{toast.msg}</div>
+          <div className={`toast ${toast.type}`} role="status">{toast.msg}</div>
         </div>
       )}
     </>
@@ -409,33 +427,32 @@ function SlackModal({ loading, onClose, onFetch }) {
   const [channel, setChannel] = useState('general');
 
   return (
-    <div className="modal-overlay" onClick={() => !loading && onClose()} style={{ backdropFilter: 'blur(4px)' }}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ animation: 'dropDownScale 0.3s var(--ease)' }}>
+    <div className="modal-overlay" onClick={() => !loading && onClose()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Target Slack channel">
         <div className="modal-header">
-          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Hash color="var(--slack)" size={20} /> Target Slack Channel</div>
-          <button className="modal-close" onClick={onClose}><X size={16} /></button>
+          <div className="modal-title"><Hash color="var(--slack)" size={20} aria-hidden="true" /> Target Slack Channel</div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            <X size={16} aria-hidden="true" />
+          </button>
         </div>
         <div className="modal-body">
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>
+          <p className="modal-copy" style={{ marginBottom: 18 }}>
             Specify a target channel to forcefully sync the most recent messages.
           </p>
-          <div className="form-group">
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" htmlFor="slack-channel" style={{ marginBottom: 8 }}>Channel</label>
             <input
+              id="slack-channel"
               className="input"
               value={channel}
               onChange={(e) => setChannel(e.target.value)}
               placeholder="e.g. engineering"
-              style={{ fontSize: 16, padding: '14px 16px' }}
             />
           </div>
         </div>
-        <div className="modal-footer" style={{ borderTop: 'none', paddingTop: 0 }}>
+        <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button
-            className="btn btn-primary"
-            onClick={() => onFetch(channel)}
-            disabled={loading || !channel.trim()}
-          >
+          <button className="btn btn-primary" onClick={() => onFetch(channel)} disabled={loading || !channel.trim()}>
             {loading ? <div className="spinner border-spinner" /> : <>Pull #{channel}</>}
           </button>
         </div>

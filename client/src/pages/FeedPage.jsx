@@ -44,6 +44,8 @@ export default function FeedPage() {
     fetchDocs();
   }, [filter]);
 
+  const toggleDoc = (id) => setSelected((prev) => (prev === id ? null : id));
+
   return (
     <>
       <div className="page-header">
@@ -51,95 +53,88 @@ export default function FeedPage() {
           <div className="page-title">Documents</div>
           <div className="page-subtitle">Structured knowledge extracted from your integrations</div>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <div style={{ display: 'flex', backgroundColor: 'var(--bg-tertiary)', padding: 4, borderRadius: 8 }}>
-            {SOURCE_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                style={{
-                  background: filter === f.value ? 'var(--bg-primary)' : 'transparent',
-                  color: filter === f.value ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  border: filter === f.value ? '1px solid var(--border)' : '1px solid transparent',
-                  boxShadow: filter === f.value ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onClick={() => setFilter(f.value)}
-              >
-                {f.label}
-              </button>
-            ))}
+        <div className="page-head-actions">
+          <div className="filter-bar">
+            <div className="filter-group" role="group" aria-label="Filter by source">
+              {SOURCE_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  className={`filter-chip ${filter === f.value ? 'is-active' : ''}`}
+                  aria-pressed={filter === f.value}
+                  onClick={() => setFilter(f.value)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button className="btn btn-secondary btn-icon" onClick={fetchDocs} aria-label="Refresh documents">
+              <RefreshCw size={16} className={loading ? 'spin' : ''} aria-hidden="true" />
+            </button>
           </div>
-          <button className="btn btn-secondary btn-icon" onClick={fetchDocs}>
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          </button>
         </div>
       </div>
-      
+
       <div className="page-body">
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="doc-list">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="skeleton" style={{ height: 100, width: '100%', borderRadius: 12 }} />
+              <div key={i} className="skeleton" style={{ height: 104 }} />
             ))}
           </div>
         ) : documents.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📭</div>
+            <div className="empty-state-icon" aria-hidden="true">📭</div>
             <h3>No documents found</h3>
             <p>Try changing your filter or ingest more data.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="doc-list">
             {documents.map((doc) => {
               const isExpanded = selected === doc._id;
-              
+
               return (
                 <div
                   key={doc._id}
-                  className="card"
-                  style={{
-                    cursor: 'pointer', 
-                    transition: 'all 0.2s ease',
-                    boxShadow: isExpanded ? '0 4px 20px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.02)',
-                    borderColor: isExpanded ? 'var(--text-primary)' : 'var(--border)'
+                  className={`doc-card liquid-sweep ${isExpanded ? 'is-open' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onClick={() => toggleDoc(doc._id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleDoc(doc._id);
+                    }
                   }}
-                  onClick={() => setSelected(isExpanded ? null : doc._id)}
                 >
-                  <div style={{ padding: '20px 24px', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                    <div style={{ paddingTop: 2 }}>
-                      <span className={`source-badge ${doc.source}`} style={{ width: 80, justifyContent: 'center' }}>{doc.source}</span>
+                  <div className="doc-main">
+                    <div className="doc-rail">
+                      <span className={`source-badge ${doc.source}`}>{doc.source}</span>
                     </div>
-                    
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, paddingRight: 16, lineHeight: 1.3 }}>
-                          {doc.title}
-                        </h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, color: 'var(--text-tertiary)' }}>
-                          <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)' }}>
-                            <Clock size={12} /> {timeAgo(doc.createdAt)}
+
+                    <div className="doc-body">
+                      <div className="doc-head">
+                        <h3 className="doc-title">{doc.title}</h3>
+                        <div className="doc-aside">
+                          <span className="doc-clock">
+                            <Clock size={12} aria-hidden="true" /> {timeAgo(doc.createdAt)}
                           </span>
-                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          {isExpanded ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
                         </div>
                       </div>
-                      
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: isExpanded ? 'unset' : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+
+                      <div className="doc-summary">
                         {doc.summary || doc.rawContent?.substring(0, 200)}
                       </div>
 
                       {/* Tags */}
                       {doc.tags && doc.tags.length > 0 && !isExpanded && (
-                        <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center' }}>
-                          <Tag size={12} color="var(--text-tertiary)" />
+                        <div className="doc-tags">
+                          <span className="tag-label">
+                            <Tag size={12} aria-hidden="true" />
+                          </span>
                           {doc.tags.slice(0, 4).map((t, i) => (
-                            <span key={i} style={{ fontSize: 11, background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                              {t}
-                            </span>
+                            <span key={i} className="doc-tag">{t}</span>
                           ))}
                         </div>
                       )}
@@ -148,50 +143,35 @@ export default function FeedPage() {
 
                   {/* EXPANDED CONTENT AREA */}
                   {isExpanded && (
-                    <div style={{ padding: '0 24px 24px', borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 24, animation: 'fadeUp 0.3s ease' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                    <div className="doc-expand">
+                      <div className="doc-split">
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-                            AI Reasoning
-                          </div>
-                          <div style={{ background: 'var(--bg-app)', padding: 16, borderRadius: 8, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, border: '1px solid var(--border)' }}>
+                          <div className="doc-panel-label">AI Reasoning</div>
+                          <div className={`doc-insight ${doc.reasoning ? '' : 'is-empty'}`}>
                             {doc.reasoning || 'No extracted reasoning available.'}
                           </div>
                         </div>
 
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-                            Context / Actions
-                          </div>
                           {doc.decision && doc.decision !== 'No decision' && (
-                            <div style={{ background: 'var(--success-bg)', color: 'var(--text-primary)', padding: 12, borderRadius: 6, fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--success)', display: 'block', marginBottom: 4 }}>
-                                Decision
-                              </span>
+                            <div className="decision-note">
+                              <div className="doc-panel-label">Decision</div>
                               {doc.decision}
                             </div>
                           )}
-                          
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-                            Raw Source
-                          </div>
-                          <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)' }}>
-                            {doc.rawContent}
-                          </div>
+
+                          <div className="doc-panel-label">Raw Source</div>
+                          <div className="doc-raw">{doc.rawContent}</div>
                         </div>
                       </div>
 
                       {/* Full Tags List */}
                       {doc.tags && doc.tags.length > 0 && (
-                        <div style={{ borderTop: '1px solid var(--border)', marginTop: 24, paddingTop: 16 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-                            Index Tags
-                          </div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <div className="doc-tagline">
+                          <div className="doc-panel-label" style={{ width: '100%' }}>Index Tags</div>
+                          <div className="doc-tags" style={{ marginTop: 0 }}>
                             {doc.tags.map((t, i) => (
-                              <span key={i} style={{ fontSize: 11, background: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: 4, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                #{t.replace(/\s+/g, '')}
-                              </span>
+                              <span key={i} className="doc-tag">#{t.replace(/\s+/g, '')}</span>
                             ))}
                           </div>
                         </div>

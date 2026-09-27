@@ -9,32 +9,34 @@ export default function LandingPage({ onNavigate }) {
   }, []);
 
   const sources = [
-    { icon: <Mail size={20} />, label: 'Gmail', color: '#D93025', bg: 'rgba(217,48,37,0.08)' },
-    { icon: <Hash size={20} />, label: 'Slack', color: '#E5A100', bg: 'rgba(229,161,0,0.08)' },
-    { icon: <FileText size={20} />, label: 'Docs', color: '#1A73E8', bg: 'rgba(26,115,232,0.08)' },
-    { icon: <Mic size={20} />, label: 'Transcripts', color: '#9333EA', bg: 'rgba(147,51,234,0.08)' },
+    { icon: <Mail size={20} />, label: 'Gmail', color: 'var(--gmail)' },
+    { icon: <Hash size={20} />, label: 'Slack', color: 'var(--slack)' },
+    { icon: <FileText size={20} />, label: 'Docs', color: 'var(--docs)' },
+    { icon: <Mic size={20} />, label: 'Transcripts', color: 'var(--transcript)' },
   ];
 
   return (
     <div className={`landing ${mounted ? 'mounted' : ''}`}>
-      {/* Animated background */}
-      <div className="landing-bg">
-        <div className="bg-gradient bg-gradient-1" />
-        <div className="bg-gradient bg-gradient-2" />
-        <div className="bg-gradient bg-gradient-3" />
-        <div className="bg-grid" />
+      {/* Atmospheric layered background */}
+      <div className="landing-bg" aria-hidden="true">
+        <span className="bg-gradient bg-gradient-1" />
+        <span className="bg-gradient bg-gradient-2" />
+        <span className="bg-gradient bg-gradient-3" />
+        <span className="bg-gradient bg-gradient-4" />
+        <span className="bg-grid" />
+        <span className="atm-grain" />
       </div>
 
       {/* Nav */}
       <nav className="landing-nav">
         <div className="landing-nav-left">
-          <div className="landing-logo-icon">~</div>
+          <div className="landing-logo-icon" aria-hidden="true">~</div>
           <span className="landing-logo-text">Trace<span style={{ fontWeight: 300 }}>.AI</span></span>
         </div>
         <div className="landing-nav-right">
           <span className="landing-tag">Walchand College Edition</span>
           <button className="landing-nav-cta" onClick={() => onNavigate('login')}>
-            Get Started <ArrowRight size={14} />
+            Get Started <ArrowRight size={14} aria-hidden="true" />
           </button>
         </div>
       </nav>
@@ -42,7 +44,7 @@ export default function LandingPage({ onNavigate }) {
       {/* Hero */}
       <section className="landing-hero">
         <div className="landing-badge">
-          <div className="landing-badge-dot" />
+          <div className="landing-badge-dot" aria-hidden="true" />
           <span>Organizational Intelligence Engine</span>
         </div>
 
@@ -58,13 +60,16 @@ export default function LandingPage({ onNavigate }) {
 
         <div className="landing-actions">
           <button className="landing-cta-main" onClick={() => onNavigate('login')}>
-            <Zap size={18} />
+            <Zap size={18} aria-hidden="true" />
             Launch Application
           </button>
-          <button className="landing-cta-outline" onClick={() => {
-            document.querySelector('.landing-sources')?.scrollIntoView({ behavior: 'smooth' });
-          }}>
-            Explore Sources <ChevronDown size={16} />
+          <button
+            className="landing-cta-outline"
+            onClick={() => {
+              document.querySelector('.landing-sources')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            Explore Sources <ChevronDown size={16} aria-hidden="true" />
           </button>
         </div>
       </section>
@@ -73,14 +78,14 @@ export default function LandingPage({ onNavigate }) {
       <section className="landing-sources">
         <div className="landing-divider">
           <span className="landing-divider-line" />
-          <span className="landing-divider-text">CONNECTED SOURCES</span>
+          <span className="landing-divider-text">Connected Sources</span>
           <span className="landing-divider-line" />
         </div>
 
         <div className="landing-source-row">
           {sources.map((s, i) => (
-            <div key={i} className="landing-source-chip">
-              <div className="landing-source-icon" style={{ color: s.color, background: s.bg }}>
+            <div key={i} className="landing-source-chip liquid-sweep">
+              <div className="landing-source-icon" style={{ color: s.color }} aria-hidden="true">
                 {s.icon}
               </div>
               <span className="landing-source-label">{s.label}</span>
@@ -92,7 +97,7 @@ export default function LandingPage({ onNavigate }) {
       {/* Security */}
       <section className="landing-security">
         <div className="landing-security-card">
-          <Shield size={28} />
+          <Shield size={28} aria-hidden="true" />
           <div>
             <h3>Enterprise Security</h3>
             <p>Strict <strong>@walchandsangli.ac.in</strong> domain lock. JWT + Bcrypt protection.</p>
@@ -107,7 +112,7 @@ export default function LandingPage({ onNavigate }) {
       <footer className="landing-footer">
         <div className="landing-footer-left">
           <span style={{ fontWeight: 700 }}>Trace.AI</span>
-          <span style={{ color: 'var(--text-muted)' }}>•</span>
+          <span className="sep" aria-hidden="true">•</span>
           <span>SunHacks 2026</span>
         </div>
         <span>Walchand College of Engineering, Sangli</span>
