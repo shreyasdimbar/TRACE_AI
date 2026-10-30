@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { LayoutDashboard, MessageSquare, FileText, Upload, Settings, LogOut } from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import AskPage from './pages/AskPage';
@@ -7,55 +7,43 @@ import IngestPage from './pages/IngestPage';
 import SettingsPage from './pages/SettingsPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
+import {
+  navigate,
+  rememberIntended,
+  consumeIntended,
+  DEFAULT_AUTHED_ROUTE,
+} from './routes';
+import { useRoute } from './router';
+import { subscribe, getSession, bootstrap, adoptSession, signOut } from './session';
 import './index.css';
 
+// Nav entries are keyed by ROUTE rather than by page name. Previously `page`
+// was a React state string ('feed'); now the URL is the truth, so each item
+// carries the path it navigates to.
 const WORKSPACE_ITEMS = [
-  { key: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-  { key: 'ask', label: 'Ask Anything', icon: MessageSquare },
-  { key: 'feed', label: 'Documents', icon: FileText, badge: '0' },
+  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { path: '/ask', label: 'Ask Anything', icon: MessageSquare },
+  { path: '/documents', label: 'Documents', icon: FileText, badge: '0' },
 ];
 
 const INTEGRATION_ITEMS = [
-  { key: 'ingest', label: 'Ingest Data', icon: Upload },
-  { key: 'settings', label: 'Settings', icon: Settings },
+  { path: '/ingest', label: 'Ingest Data', icon: Upload },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function App() {
-  const [page, setPage] = useState('dashboard');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [view, setView] = useState('landing'); // 'landing' | 'login' | 'app'
-  const [authLoading, setAuthLoading] = useState(true);
 
-  // On mount: check for persisted session
+  // Session lives in an external store so every consumer re-renders on change
+  // without this component threading auth state through props.
+  const session = useSyncExternalStore(subscribe, getSession, getSession);
+  const { status, user } = session;
+
+  const { path, intended, renderPath } = useRoute(session);
+
+  // Verify any stored token once on boot.
   useEffect(() => {
-    const savedToken = localStorage.getItem('trace_token');
-    const savedUser = localStorage.getItem('trace_user');
-
-    if (savedToken && savedUser) {
-      // Validate token with backend
-      fetch('http://localhost:5000/api/auth/me', {
-        headers: { Authorization: `Bearer ${savedToken}` },
-      })
-        .then((res) => {
-          if (res.ok) return res.json();
-          throw new Error('Token expired');
-        })
-        .then((data) => {
-          setUser(data.user);
-          setToken(savedToken);
-          setView('app');
-        })
-        .catch(() => {
-          localStorage.removeItem('trace_token');
-          localStorage.removeItem('trace_user');
-          setView('landing');
-        })
-        .finally(() => setAuthLoading(false));
-    } else {
-      setAuthLoading(false);
-    }
+    bootstrap();
   }, []);
 
   // Theme effect
@@ -70,34 +58,53 @@ export default function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  /**
+   * Navigate to a workspace route.
+   *
+   * Pages still call this via a `setPage`-shaped prop (DashboardPage does), so
+   * those call sites are unchanged - the mapping from old page names to real
+   * paths is contained here.
+   */
+  const go = (pageOrPath) => {
+    // Legacy page-name aliasing, so `setPage('feed')` keeps working.
+    const ALIASES = { feed: '/documents', documents: '/documents' };
+    navigate(ALIASES[pageOrPath] || pageOrPath);
+  };
+
   const handleLogin = (userData, jwt) => {
-    setUser(userData);
-    setToken(jwt);
-    setView('app');
-    setPage('dashboard');
+    adoptSession(userData, jwt);
+    // Return the user to whatever protected page sent them here, if any.
+    navigate(consumeIntended(DEFAULT_AUTHED_ROUTE), { replace: true });
   };
 
   const handleLogout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('trace_token');
-    localStorage.removeItem('trace_user');
-    setView('landing');
+    signOut({ navigateTo: () => navigate('/', { replace: true }) });
   };
 
-  const renderPage = () => {
-    switch (page) {
-      case 'dashboard': return <DashboardPage setPage={setPage} />;
-      case 'ask': return <AskPage />;
-      case 'feed': return <FeedPage />;
-      case 'ingest': return <IngestPage />;
-      case 'settings': return <SettingsPage theme={theme} setTheme={setTheme} />;
-      default: return <DashboardPage setPage={setPage} />;
+  /** Landing and login pass an onNavigate that used to switch `view`. */
+  const handlePublicNavigate = (view) => {
+    if (view === 'login') {
+      rememberIntended(intended);
+      navigate('/login');
+    } else {
+      navigate('/');
     }
   };
 
-  // Loading spinner while verifying token
-  if (authLoading) {
+  const renderPage = () => {
+    switch (renderPath) {
+      case '/dashboard': return <DashboardPage setPage={go} />;
+      case '/ask': return <AskPage />;
+      case '/documents': return <FeedPage />;
+      case '/ingest': return <IngestPage />;
+      case '/settings': return <SettingsPage theme={theme} setTheme={setTheme} />;
+      default: return null;
+    }
+  };
+
+  // Session still being verified: hold on the boot screen. Rendering the login
+  // page here instead would flash it at a signed-in user on every refresh.
+  if (status === 'loading') {
     return (
       <div className="boot">
         <div className="atmosphere" aria-hidden="true">
@@ -114,14 +121,16 @@ export default function App() {
     );
   }
 
-  // Auth gateway
-  if (view === 'landing') {
-    return <LandingPage onNavigate={setView} />;
+  // Public shell: landing and login render outside the app chrome.
+  if (status === 'anonymous') {
+    if (path === '/login' || renderPath === '/login') {
+      return <LoginPage onLogin={handleLogin} onNavigate={handlePublicNavigate} />;
+    }
+    return <LandingPage onNavigate={handlePublicNavigate} />;
   }
 
-  if (view === 'login') {
-    return <LoginPage onLogin={handleLogin} onNavigate={setView} />;
-  }
+  // A protected URL reached while anonymous has already been redirected by
+  // useRoute, so anything past this point is a genuine authenticated route.
 
   // Extract user initials
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
@@ -131,11 +140,11 @@ export default function App() {
   const renderNavGroup = (items) =>
     items.map((item) => (
       <button
-        key={item.key}
-        className={`nav-item ${page === item.key ? 'active' : ''}`}
-        onClick={() => setPage(item.key)}
-        id={`nav-${item.key}`}
-        aria-current={page === item.key ? 'page' : undefined}
+        key={item.path}
+        className={`nav-item ${path === item.path ? 'active' : ''}`}
+        onClick={() => navigate(item.path)}
+        id={`nav-${item.path.replace('/', '')}`}
+        aria-current={path === item.path ? 'page' : undefined}
         title={item.label}
       >
         <item.icon className="nav-icon" size={16} aria-hidden="true" />

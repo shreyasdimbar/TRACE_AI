@@ -6,6 +6,13 @@
     <meta name="description" content="Trace.AI — Organizational Intelligence Engine. Query your emails, Slack, docs, and transcripts with AI-powered semantic search." />
     <title>Trace.AI — Intelligence Engine</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+    <!-- Warm the font origins before index.css's `@import` asks for them. Without
+         this the browser pays DNS + TLS on the render-blocking first request, and
+         if fonts.googleapis.com is slow or unreachable the first paint stalls for
+         the whole timeout — which reads as a laggy UI even though the app itself
+         is idle. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>

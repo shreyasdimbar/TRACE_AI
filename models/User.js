@@ -30,6 +30,20 @@ const userSchema = new mongoose.Schema({
     enum: ['member', 'admin'],
     default: 'member',
   },
+  // Bumped on logout. A JWT is self-contained and stays cryptographically valid
+  // until it expires, so clearing it from the browser is not enough: anyone who
+  // copied the token keeps full access for the remainder of its TTL. The token
+  // carries the tokenVersion it was minted with, and requireAuth compares it
+  // against the current value, so bumping the number retroactively invalidates
+  // every token issued before the bump - including copies held elsewhere.
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
+  lastLogoutAt: {
+    type: Date,
+    default: null,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

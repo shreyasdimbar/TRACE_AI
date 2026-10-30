@@ -1,57 +1,64 @@
 const express = require('express');
 const router = express.Router();
-const Document = require('../models/Document');
-const { extractReasoning, getEmbedding } = require('../services/aiService');
-const { addToChroma } = require('../services/chromaService');
-const { storeDocumentNode } = require('../services/neo4jService');
+const { ingestDocument, IngestError } = require('../services/ingestService');
+const { normaliseTranscript } = require('../services/transcriptParser');
+const { requireAuth } = require('./auth');
 
-// POST /api/ingest
-router.post('/', async (req, res) => {
+/** Sources a caller may claim for a manual ingest. */
+const MANUAL_SOURCES = new Set(['manual', 'transcript', 'note', 'document']);
+
+/* ── POST /api/ingest ────────────────────────────────────── */
+router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { source, title, content, metadata = {} } = req.body;
+    const { source, title, content } = req.body || {};
+    const metadata = req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {};
 
-    if (!source || !title || !content) {
-      return res.status(400).json({ error: 'source, title, content are required' });
+    const cleanSource = String(source || 'manual').trim();
+    if (!MANUAL_SOURCES.has(cleanSource)) {
+      return res.status(400).json({
+        error: `source must be one of: ${[...MANUAL_SOURCES].join(', ')}`,
+      });
     }
 
-    // 1. Extract reasoning with Gemini
-    const extracted = await extractReasoning(content, source);
+    let cleanContent = content;
+    // Transcripts arrive as plain text OR as a JSON export from Zoom/Meet/
+    // Teams. Storing the JSON verbatim made the vector mostly punctuation and
+    // field names and hid every speaker, so it is flattened to readable lines
+    // before it ever reaches the model. Anything unrecognised is passed through
+    // untouched -- content is never dropped.
+    let transcriptReport = null;
+    let transcriptMeta = null;
+    if (cleanSource === 'transcript') {
+      const t = normaliseTranscript(content);
+      cleanContent = t.text;
+      // The response reports the normaliser's vocabulary; the stored copy uses
+      // the field the Document schema actually declares (`participants`) --
+      // the metadata subdocument is closed and drops anything undeclared.
+      transcriptReport = { format: t.format, segments: t.segments, speakers: t.speakers };
+      transcriptMeta = {
+        transcriptFormat: t.format,
+        transcriptSegments: t.segments,
+        ...(t.speakers.length ? { participants: t.speakers } : {}),
+      };
+    }
 
-    // 2. Save to MongoDB
-    const doc = new Document({
-      source,
+    const result = await ingestDocument({
+      source: cleanSource,
       title,
-      rawContent: content,
-      summary: extracted.summary,
-      decision: extracted.decision,
-      reasoning: extracted.reasoning,
-      tags: extracted.tags,
-      metadata
-    });
-    await doc.save();
-    const docId = doc._id.toString();
-
-    // 3. Get embedding and save to ChromaDB
-    const embedding = await getEmbedding(content);
-    if (embedding.length > 0) {
-      await addToChroma(docId, embedding, content, { source, title, docId });
-    }
-
-    // 4. Save to Neo4j
-    await storeDocumentNode(docId, title, source, extracted.decision, extracted.tags);
-
-    res.json({
-      success: true,
-      docId,
-      summary: extracted.summary,
-      decision: extracted.decision,
-      reasoning: extracted.reasoning,
-      tags: extracted.tags
+      content: cleanContent,
+      metadata: { ...metadata, ...transcriptMeta },
     });
 
+    res.status(result.created ? 201 : 200).json({ success: true, transcript: transcriptReport, ...result });
   } catch (err) {
-    console.error('Ingest error:', err.message);
-    res.status(500).json({ error: err.message });
+    if (err instanceof IngestError) {
+      const status =
+        err.code === 'EMPTY_CONTENT' || err.code.startsWith('MISSING_') || err.code === 'TITLE_TOO_LONG'
+          ? 400
+          : 500;
+      return res.status(status).json({ error: err.message, code: err.code });
+    }
+    next(err);
   }
 });
 
