@@ -1,6 +1,7 @@
 # Trace.AI — Project Context (handoff)
 
 
+
 > **Purpose:** everything needed to continue work in a fresh conversation without
 > re-deriving it.
 > **Last verified:** 2026-10-15, against a running stack (figures read from the
