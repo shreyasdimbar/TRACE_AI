@@ -1,5 +1,5 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
-import { LayoutDashboard, MessageSquare, FileText, Upload, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Upload, Settings, LogOut, Building2 } from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import AskPage from './pages/AskPage';
 import FeedPage from './pages/FeedPage';
@@ -21,18 +21,24 @@ import './index.css';
 // was a React state string ('feed'); now the URL is the truth, so each item
 // carries the path it navigates to.
 const WORKSPACE_ITEMS = [
-  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { path: '/ask', label: 'Ask Anything', icon: MessageSquare },
-  { path: '/documents', label: 'Documents', icon: FileText, badge: '0' },
+  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { path: '/documents', label: 'Documents', icon: FileText },
 ];
 
 const INTEGRATION_ITEMS = [
   { path: '/ingest', label: 'Ingest Data', icon: Upload },
+];
+
+const PREFERENCE_ITEMS = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function App() {
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
+  });
 
   // Session lives in an external store so every consumer re-renders on change
   // without this component threading auth state through props.
@@ -49,13 +55,21 @@ export default function App() {
   // Theme effect
   useEffect(() => {
     const root = document.documentElement;
+    const systemPreference = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      const resolvedTheme = theme === 'system'
+        ? (systemPreference.matches ? 'dark' : 'light')
+        : theme;
+      root.setAttribute('data-theme', resolvedTheme);
+    };
+
+    applyTheme();
     if (theme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    } else {
-      root.setAttribute('data-theme', theme);
+      systemPreference.addEventListener('change', applyTheme);
     }
     localStorage.setItem('theme', theme);
+
+    return () => systemPreference.removeEventListener('change', applyTheme);
   }, [theme]);
 
   /**
@@ -98,7 +112,10 @@ export default function App() {
       case '/documents': return <FeedPage />;
       case '/ingest': return <IngestPage />;
       case '/settings': return <SettingsPage theme={theme} setTheme={setTheme} />;
-      default: return null;
+      // An authenticated visitor landing on an unrecognised path (notably the
+      // bare "/") used to render nothing at all, leaving a blank content area.
+      // Fall back to the workspace dashboard instead of an empty screen.
+      default: return <DashboardPage setPage={go} />;
     }
   };
 
@@ -166,24 +183,28 @@ export default function App() {
       </div>
 
       <div className="app-layout">
-        {/* ─── SIDEBAR ─── */}
-        <aside className="sidebar">
-          <div className="sidebar-header">
+        {/* ─── WORKSPACE TOP BAR ─── */}
+        <header className="workspace-topbar">
+          <div className="topbar-brand">
             <div className="sidebar-logo">
-              <div className="logo-mark" aria-hidden="true">~</div>
+              <div className="logo-mark" aria-hidden="true"><FileText size={17} /></div>
               <div className="logo-text">Trace.AI</div>
+            </div>
+            <div className="workspace-context">
+              <span className="workspace-context-icon" aria-hidden="true"><Building2 size={16} /></span>
+              <span className="workspace-context-copy">
+                <span className="workspace-context-name">Nexora Technologies</span>
+                <span className="workspace-context-meta">Shared knowledge base</span>
+              </span>
             </div>
           </div>
 
-          <nav className="sidebar-nav" aria-label="Primary">
-            <div className="nav-section-label">Workspace</div>
-            {renderNavGroup(WORKSPACE_ITEMS)}
-            <div className="nav-section-label">Integrations</div>
-            {renderNavGroup(INTEGRATION_ITEMS)}
+          <nav className="topbar-nav" aria-label="Primary navigation">
+            {renderNavGroup([...WORKSPACE_ITEMS, ...INTEGRATION_ITEMS, ...PREFERENCE_ITEMS])}
           </nav>
 
-          <div className="sidebar-footer">
-            <div className="user-avatar" style={{ width: 30, height: 30, fontSize: 12 }} aria-hidden="true">
+          <div className="sidebar-footer topbar-account">
+            <div className="user-avatar" style={{ width: 26, height: 26, fontSize: 11 }} aria-hidden="true">
               {userInitial}
             </div>
             <div className="user-info">
@@ -194,7 +215,7 @@ export default function App() {
               <LogOut size={16} aria-hidden="true" />
             </button>
           </div>
-        </aside>
+        </header>
 
         {/* ─── MAIN ─── */}
         <main className="main-content">{renderPage()}</main>

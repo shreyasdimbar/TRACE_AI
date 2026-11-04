@@ -112,6 +112,11 @@ test('dedup keys are unique partial indexes', () => {
   // A compound text index is declared in the key, not flagged in the options.
   const text = specs.find((s) => s.key && Object.values(s.key).includes('text'));
   assert.ok(text, `keyword fallback needs a text index for /api/ask; got ${JSON.stringify(specs.map((s) => s.key))}`);
+  for (const field of ['decision', 'decisionHistory.text', 'reasoning', 'tags', 'metadata.sender', 'metadata.channel', 'metadata.threadId']) {
+    assert.ok(text.key[field] === 'text', `weighted search index is missing ${field}`);
+  }
+  assert.ok(text.opts.weights.title > text.opts.weights.rawContent, 'titles should outweigh body text');
+  assert.ok(text.opts.weights.decision > text.opts.weights.rawContent, 'decisions should outweigh body text');
 });
 
 test('unknown metadata keys are still ignored (strict)', () => {

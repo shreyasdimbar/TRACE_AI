@@ -107,6 +107,7 @@ function ingestible(msg) {
           const Document = require('./models/Document');
           const { getEmbedding } = require('./services/aiService');
           const { addToChroma } = require('./services/chromaService');
+          const { buildIndexText, VECTOR_INDEX_VERSION } = require('./services/retrieval');
           const meta = {
             sender,
             channel: channel.name,
@@ -129,12 +130,14 @@ function ingestible(msg) {
               metadata: meta,
             });
             const docId = doc._id.toString();
-            const embedding = await getEmbedding(msg.text, { task: 'document' });
+            const indexText = buildIndexText(doc.toObject());
+            const embedding = await getEmbedding(indexText, { task: 'document' });
             if (embedding.length > 0) {
-              await addToChroma(docId, embedding, msg.text, {
+              await addToChroma(docId, embedding, indexText, {
                 source: 'slack',
                 title: doc.title,
                 docId,
+                embeddingVersion: VECTOR_INDEX_VERSION,
               });
             }
             try {

@@ -80,7 +80,11 @@ export const api = {
   logout: async () => request('/api/auth/logout', { method: 'POST', body: {} }),
 
   // ── Query ───────────────────────────────────────────────
-  ask: async (question) => request('/api/ask', { method: 'POST', body: { question } }),
+  ask: async (question, history = [], mode) => {
+    const body = { question, history };
+    if (mode) body.mode = mode;
+    return request('/api/ask', { method: 'POST', body });
+  },
 
   // ── Documents ───────────────────────────────────────────
   /**
@@ -89,12 +93,13 @@ export const api = {
    * @param includeContent  pass false for a lean list without rawContent
    * @param skip            offset for paging; the server returns hasMore + total
    */
-  getDocuments: async (source = '', limit = 50, includeContent = true, skip = 0) => {
+  getDocuments: async (source = '', limit = 50, includeContent = true, skip = 0, search = '') => {
     const params = new URLSearchParams();
     if (source) params.set('source', source);
     params.set('limit', String(limit));
     if (!includeContent) params.set('includeContent', 'false');
     if (skip > 0) params.set('skip', String(skip));
+    if (search.trim()) params.set('search', search.trim());
     return request(`/api/documents?${params}`);
   },
 

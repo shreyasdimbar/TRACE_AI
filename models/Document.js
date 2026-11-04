@@ -98,7 +98,53 @@ const DocumentSchema = new mongoose.Schema(
 // ── Indexes ────────────────────────────────────────────────────
 
 // Keyword fallback for /api/ask when the vector store is unreachable.
-DocumentSchema.index({ title: 'text', rawContent: 'text', summary: 'text' });
+DocumentSchema.index(
+  {
+    title: 'text',
+    source: 'text',
+    decision: 'text',
+    'decisionHistory.text': 'text',
+    'decisionHistory.summary': 'text',
+    'decisionHistory.fromTitle': 'text',
+    summary: 'text',
+    tags: 'text',
+    reasoning: 'text',
+    'metadata.sender': 'text',
+    'metadata.to': 'text',
+    'metadata.channelId': 'text',
+    'metadata.messageId': 'text',
+    'metadata.threadId': 'text',
+    'metadata.googleDocId': 'text',
+    'metadata.channel': 'text',
+    'metadata.participants': 'text',
+    'metadata.date': 'text',
+    rawContent: 'text',
+  },
+  {
+    name: 'document_search_text_v2',
+    weights: {
+      title: 12,
+      source: 2,
+      decision: 10,
+      'decisionHistory.text': 8,
+      'decisionHistory.fromTitle': 5,
+      'decisionHistory.summary': 3,
+      summary: 8,
+      tags: 6,
+      reasoning: 5,
+      'metadata.sender': 4,
+      'metadata.to': 3,
+      'metadata.channelId': 2,
+      'metadata.messageId': 1,
+      'metadata.threadId': 2,
+      'metadata.googleDocId': 2,
+      'metadata.channel': 3,
+      'metadata.participants': 2,
+      'metadata.date': 2,
+      rawContent: 1,
+    },
+  }
+);
 
 // The documents list is always filtered by source and sorted newest-first.
 // This compound index serves both the filter and the sort, so it also covers

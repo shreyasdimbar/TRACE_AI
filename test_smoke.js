@@ -203,6 +203,21 @@ test('reports NOT_CONFIGURED when the key is absent', async () => {
   assert.ok(AiError.prototype instanceof Error);
 });
 
+test('the Ask/Gemini timeout window is 30 seconds', () => {
+  const { describe } = require('./services/aiService');
+  assert.strictEqual(describe().askTimeoutMs, 30000);
+});
+
+test('an exhausted Ask deadline prevents starting another Gemini retry', async () => {
+  const { withRetry, AiError } = require('./services/aiService');
+  let calls = 0;
+  await assert.rejects(
+    () => withRetry('deadline smoke', async () => { calls += 1; }, { deadlineAt: Date.now() - 1 }),
+    (err) => err instanceof AiError && err.code === 'UPSTREAM_TIMEOUT'
+  );
+  assert.strictEqual(calls, 0, 'must not start another Gemini call after deadline expiry');
+});
+
 /* ──────────────────────────────────────────────────────────
    Decision normalisation
    ────────────────────────────────────────────────────────── */
@@ -243,6 +258,16 @@ test('a decision that merely mentions the phrase is preserved', () => {
   const { normaliseDecision } = require('./services/aiService');
   const d = 'Reviewed the "no decision" template and rejected it in favour of a new form';
   assert.strictEqual(normaliseDecision(d), d);
+});
+
+test('the extraction prompt asks for factual summaries and crisp decisions', () => {
+  const { buildExtractionPrompt } = require('./services/aiService');
+  const prompt = buildExtractionPrompt('The team approved moving the build to GitHub Actions.', 'gmail');
+  assert.ok(prompt.includes('One factual sentence'), 'summary guidance missing');
+  assert.ok(prompt.includes('No decision'), 'decision sentinel guidance missing');
+  assert.ok(prompt.includes('Never invent a decision'), 'invent-guard missing');
+  assert.ok(prompt.includes('GitHub Actions'), 'content must be embedded verbatim');
+  assert.ok(prompt.includes('tags'), 'tag guidance missing');
 });
 
 /* ──────────────────────────────────────────────────────────
@@ -345,12 +370,39 @@ test('a threaded previous decision carries its origin title', () => {
   assert.ok(blocks[0].text.includes('from earlier item: Budget thread - earlier mail'));
 });
 
+test('the answer prompt states today and the resolved time window', () => {
+  const { buildAnswerReferences } = require('./services/aiService');
+  const now = new Date('2026-11-01T12:00:00Z');
+  const lastMonth = buildAnswerReferences('updated of both in last month', [], now);
+  assert.match(lastMonth, /CURRENT DATE \(UTC\): 2026-11-01/);
+  assert.match(lastMonth, /REQUESTED TIME WINDOW: 1 October 2026 to 31 October 2026 \(October 2026\)/);
+  assert.doesNotMatch(lastMonth, /September 2026/);
+
+  const previous = buildAnswerReferences('prev of that month', [
+    { role: 'user', content: 'updated of both in last month' },
+  ], now);
+  assert.match(previous, /REQUESTED TIME WINDOW: 1 September 2026 to 30 September 2026 \(September 2026\)/);
+
+  const undated = buildAnswerReferences('Who approved the release?', [], now);
+  assert.match(undated, /CURRENT DATE \(UTC\): 2026-11-01/);
+  assert.doesNotMatch(undated, /REQUESTED TIME WINDOW/);
+
+  const withEntities = buildAnswerReferences('updated of both in last month', [
+    { role: 'user', content: 'what projects is our company working on and who are the clients' },
+    { role: 'assistant', content: 'NovaCart E-commerce Platform\nClient: NovaTech Solutions\nAI Inventory & Demand Forecasting Platform\nClient: GreenMart Retail' },
+  ], now);
+  assert.match(withEntities, /REFERENCED ENTITIES/);
+  assert.match(withEntities, /GreenMart Retail/);
+  assert.doesNotMatch(withEntities, /PRIOR ASSISTANT RESPONSE/);
+});
+
 test('the citation payload exposes latest and previous to the UI', () => {
   const { toCitationPayload } = require('./services/aiService');
   const [s] = toCitationPayload([{
     _id: '656f00000000000000000003',
     title: 'Shipping Policy',
     source: 'google_docs',
+    metadata: { date: '2026-06-10', link: 'https://docs.google.com/document/d/example' },
     decision: 'Decision C - no Friday shipping',
     decisionHistory: [
       { text: 'Decision A - ship on Fridays', decidedAt: 't1', fromTitle: '' },
@@ -358,6 +410,8 @@ test('the citation payload exposes latest and previous to the UI', () => {
     ],
   }], [4]);
   assert.strictEqual(s.ref, 4);
+  assert.strictEqual(s.date, '2026-06-10');
+  assert.strictEqual(s.link, 'https://docs.google.com/document/d/example');
   assert.strictEqual(s.decision, 'Decision C - no Friday shipping');
   assert.strictEqual(s.previousDecision, 'Decision B - ship on Wednesdays');
   assert.strictEqual(s.decisionChangedAt, 't2');
@@ -386,6 +440,59 @@ test('an unscoped latest-decision question is recognized as a temporal lookup', 
   assert.strictEqual(isLatestDecisionQuestion('What was the most recent resolution?'), true);
   assert.strictEqual(isLatestDecisionQuestion('What is the current decision?'), true);
   assert.strictEqual(isLatestDecisionQuestion('What decision did we make about leave?'), false);
+});
+
+test('ordinary chat and standalone email-writing requests bypass archive retrieval', () => {
+  const { isWritingRequest, isArchiveQuestion } = require('./routes/ask');
+  assert.strictEqual(isWritingRequest('Write an email asking my professor to reschedule our meeting.'), true);
+  assert.strictEqual(isArchiveQuestion('Write an email asking my professor to reschedule our meeting.'), false);
+  assert.strictEqual(isArchiveQuestion('Tell me a quick joke.'), false);
+  assert.strictEqual(isArchiveQuestion('How do I politely ask for a deadline extension?'), false);
+});
+
+test('requests that rely on indexed decisions stay grounded in the archive', () => {
+  const { isArchiveQuestion } = require('./routes/ask');
+  assert.strictEqual(isArchiveQuestion('What is the latest decision?'), true);
+  assert.strictEqual(isArchiveQuestion('Summarize the latest email from our Gmail.'), true);
+  assert.strictEqual(isArchiveQuestion('Draft an email based on our latest decision.'), true);
+});
+
+test('the chat UI answer mode toggles explicit general vs archive context', () => {
+  const { resolveAskMode } = require('./routes/ask');
+  // An explicit user toggle choice wins over the automatic classifier.
+  assert.strictEqual(resolveAskMode('general', 'What is the latest decision?'), 'general');
+  assert.strictEqual(resolveAskMode('archive', 'Tell me a quick joke.'), 'archive');
+  assert.strictEqual(resolveAskMode('GENERAL', 'Summarize the latest emails'), 'general');
+  // Absent or invalid choices fall back to heuristic routing.
+  assert.strictEqual(resolveAskMode(undefined, 'What is the latest decision?'), 'archive');
+  assert.strictEqual(resolveAskMode('bogus', 'What is the latest decision?'), 'archive');
+  assert.strictEqual(resolveAskMode(undefined, 'Write an email asking my professor to reschedule.'), 'general');
+});
+
+test('chat history is role-checked and bounded before it reaches the model', () => {
+  const { cleanConversationHistory } = require('./routes/ask');
+  const input = [
+    { role: 'system', content: 'must be dropped' },
+    ...Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'ai' : 'user', content: `turn-${i}` })),
+    { role: 'error', content: 'must be dropped' },
+  ];
+  const history = cleanConversationHistory(input);
+  assert.strictEqual(history.length, 8, 'keep only the most recent eight valid turns');
+  assert.strictEqual(history[0].content, 'turn-2');
+  assert.strictEqual(history[0].role, 'user');
+  assert.strictEqual(history[1].role, 'assistant');
+  assert.ok(history.every((m) => m.role === 'user' || m.role === 'assistant'));
+});
+
+test('general chatbot prompts can use the recent conversation for follow-ups', () => {
+  const { formatConversationHistory } = require('./services/aiService');
+  assert.strictEqual(
+    formatConversationHistory([
+      { role: 'user', content: 'Draft an email to my professor.' },
+      { role: 'assistant', content: 'Subject: Meeting request' },
+    ]),
+    'User: Draft an email to my professor.\nAssistant: Subject: Meeting request'
+  );
 });
 
 /* ──────────────────────────────────────────────────────────

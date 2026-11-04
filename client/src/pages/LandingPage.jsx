@@ -1,13 +1,6 @@
-import { useState, useEffect } from 'react';
 import { ArrowRight, Shield, Zap, Mail, Hash, FileText, Mic, ChevronDown } from 'lucide-react';
 
 export default function LandingPage({ onNavigate }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTimeout(() => setMounted(true), 50);
-  }, []);
-
   const sources = [
     { icon: <Mail size={20} />, label: 'Gmail', color: 'var(--gmail)' },
     { icon: <Hash size={20} />, label: 'Slack', color: 'var(--slack)' },
@@ -16,7 +9,7 @@ export default function LandingPage({ onNavigate }) {
   ];
 
   return (
-    <div className={`landing ${mounted ? 'mounted' : ''}`}>
+    <div className="landing">
       {/* Atmospheric layered background */}
       <div className="landing-bg" aria-hidden="true">
         <span className="bg-gradient bg-gradient-1" />
@@ -30,11 +23,11 @@ export default function LandingPage({ onNavigate }) {
       {/* Nav */}
       <nav className="landing-nav">
         <div className="landing-nav-left">
-          <div className="landing-logo-icon" aria-hidden="true">~</div>
+          <div className="landing-logo-icon" aria-hidden="true"><FileText size={18} /></div>
           <span className="landing-logo-text">Trace<span style={{ fontWeight: 300 }}>.AI</span></span>
         </div>
         <div className="landing-nav-right">
-          <span className="landing-tag">Walchand College Edition</span>
+          <span className="landing-tag">Nexora Technologies workspace</span>
           <button className="landing-nav-cta" onClick={() => onNavigate('login')}>
             Get Started <ArrowRight size={14} aria-hidden="true" />
           </button>
@@ -43,42 +36,75 @@ export default function LandingPage({ onNavigate }) {
 
       {/* Hero */}
       <section className="landing-hero">
-        <div className="landing-badge">
-          <div className="landing-badge-dot" aria-hidden="true" />
-          <span>Organizational Intelligence Engine</span>
+        <div className="landing-copy">
+          <div className="landing-badge">
+            <div className="landing-badge-dot" aria-hidden="true" />
+            <span>Organizational knowledge, with sources</span>
+          </div>
+
+          <h1 className="landing-title">
+            Your Knowledge,<br />
+            <span className="landing-title-accent">Connected.</span>
+          </h1>
+
+          <p className="landing-desc">
+            Bring Gmail, Slack, Google Docs, and transcripts into one searchable workspace.
+            Ask questions and follow answers back to their source.
+          </p>
+
+          <div className="landing-actions">
+            <button className="landing-cta-main" onClick={() => onNavigate('login')}>
+              <Zap size={17} aria-hidden="true" />
+              Open Trace.AI
+            </button>
+            <button
+              className="landing-cta-outline"
+              onClick={() => {
+                const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+                document.querySelector('.landing-sources')?.scrollIntoView({ behavior });
+              }}
+            >
+              Explore sources <ChevronDown size={16} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
-        <h1 className="landing-title">
-          Your Knowledge,<br />
-          <span className="landing-title-accent">Unified.</span>
-        </h1>
-
-        <p className="landing-desc">
-          Connect Gmail, Slack, and Docs. Ask anything.<br />
-          Get answers with full source citations instantly.
-        </p>
-
-        <div className="landing-actions">
-          <button className="landing-cta-main" onClick={() => onNavigate('login')}>
-            <Zap size={18} aria-hidden="true" />
-            Launch Application
-          </button>
-          <button
-            className="landing-cta-outline"
-            onClick={() => {
-              document.querySelector('.landing-sources')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            Explore Sources <ChevronDown size={16} aria-hidden="true" />
-          </button>
-        </div>
+        <aside className="landing-workflow" aria-label="How Trace.AI works">
+          <div className="landing-workflow-heading">
+            <span className="landing-workflow-kicker">A clear path from source to answer</span>
+            <h2>Knowledge you can trace.</h2>
+          </div>
+          <ol className="landing-workflow-list">
+            <li>
+              <span className="landing-workflow-number">01</span>
+              <div>
+                <strong>Connect your sources</strong>
+                <p>Bring in the conversations and documents your team already uses.</p>
+              </div>
+            </li>
+            <li>
+              <span className="landing-workflow-number">02</span>
+              <div>
+                <strong>Build shared context</strong>
+                <p>Trace.AI organizes knowledge for search and decision history.</p>
+              </div>
+            </li>
+            <li>
+              <span className="landing-workflow-number">03</span>
+              <div>
+                <strong>Ask and verify</strong>
+                <p>Get answers with citations back to the indexed material.</p>
+              </div>
+            </li>
+          </ol>
+        </aside>
       </section>
 
       {/* Sources */}
       <section className="landing-sources">
         <div className="landing-divider">
           <span className="landing-divider-line" />
-          <span className="landing-divider-text">Connected Sources</span>
+          <span className="landing-divider-text">Supported sources</span>
           <span className="landing-divider-line" />
         </div>
 
@@ -100,7 +126,7 @@ export default function LandingPage({ onNavigate }) {
           <Shield size={28} aria-hidden="true" />
           <div>
             <h3>Enterprise Security</h3>
-            <p>Strict <strong>@walchandsangli.ac.in</strong> domain lock. JWT + Bcrypt protection.</p>
+            <p>Organization email verification with JWT and bcrypt-secured access.</p>
           </div>
           <button className="landing-cta-main landing-cta-sm" onClick={() => onNavigate('login')}>
             Sign In
@@ -115,7 +141,7 @@ export default function LandingPage({ onNavigate }) {
           <span className="sep" aria-hidden="true">•</span>
           <span>SunHacks 2026</span>
         </div>
-        <span>Walchand College of Engineering, Sangli</span>
+        <span>Nexora Technologies</span>
       </footer>
     </div>
   );

@@ -13,6 +13,7 @@
 const Document = require('../models/Document');
 const { extractReasoning, getEmbedding } = require('./aiService');
 const { addToChroma, deleteFromChroma } = require('./chromaService');
+const { buildIndexText, VECTOR_INDEX_VERSION } = require('./retrieval');
 
 const MAX_CONTENT_CHARS = Number(process.env.INGEST_MAX_CHARS || 8000);
 const NO_DECISION = 'No decision';
@@ -75,6 +76,21 @@ function requireFields({ source, title }) {
   if (String(title).length > 300) throw new IngestError('TITLE_TOO_LONG', 'title must be 300 characters or fewer');
 }
 
+/**
+ * Source-derived timestamp for an ingested artefact, preferring the provider
+ * metadata (Gmail message date, Slack ts, Google Docs created/modified time).
+ * Falls back to the ingest time only when the source carries no date.
+ */
+function sourceDateFromMetadata(metadata = {}) {
+  const candidates = [metadata?.date, metadata?.modifiedTime, metadata?.createdTime, metadata?.timestamp];
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const parsed = Date.parse(String(candidate));
+    if (Number.isFinite(parsed)) return new Date(parsed);
+  }
+  return null;
+}
+
 async function findExisting(dedupQuery) {
   if (!dedupQuery || !Object.keys(dedupQuery).length) return null;
   return Document.findOne(dedupQuery);
@@ -124,6 +140,10 @@ async function ingestDocument({
     skipExtraction && preExtracted
       ? preExtracted
       : await extractReasoning(text, cleanSource);
+
+  // Source-derived dates keep re-ingested artefacts on their real timeline
+  // instead of stamping every freshly inserted document with the current time.
+  const sourceDate = sourceDateFromMetadata(metadata);
 
   // ── Decision history ─────────────────────────────────────
   // Built BEFORE the save, because both places that overwrite `decision` below
@@ -192,6 +212,14 @@ async function ingestDocument({
       doc.decisionHistory = decisionHistory;
       doc.metadata = { ...(existing.metadata?.toObject?.() || existing.metadata || {}), ...metadata };
       await doc.save();
+      if (sourceDate) {
+        // See comment in the new-document branch: write source-derived
+        // timestamps past Mongoose's save-time stamping.
+        await Document.collection.updateOne(
+          { _id: doc._id },
+          { $set: { createdAt: sourceDate, updatedAt: sourceDate } },
+        );
+      }
     } else {
       doc = new Document({
         source: cleanSource,
@@ -206,6 +234,15 @@ async function ingestDocument({
         metadata,
       });
       await doc.save();
+      if (sourceDate) {
+        // Mongoose stamps createdAt/updatedAt with the ingest time on every
+        // save (timestamps: true) and clobbers values assigned beforehand, so
+        // push the source-derived timestamps through the raw driver collection.
+        await Document.collection.updateOne(
+          { _id: doc._id },
+          { $set: { createdAt: sourceDate, updatedAt: sourceDate } },
+        );
+      }
     }
   } catch (err) {
     // The unique dedup indexes are the real guard against double-insert: a cron
@@ -229,12 +266,24 @@ async function ingestDocument({
   const layers = { mongo: true, chroma: false, neo4j: false };
 
   // ── ChromaDB (lazy require keeps the graph layer optional) ──
-  const embedding = await getEmbedding(text, { task: 'document' });
+  const indexText = buildIndexText({
+    source: cleanSource,
+    title: cleanTitle,
+    rawContent: text,
+    summary: extracted.summary,
+    decision: extracted.decision,
+    reasoning: extracted.reasoning,
+    tags: extracted.tags,
+    decisionHistory: doc.decisionHistory,
+    metadata: doc.metadata?.toObject?.() || doc.metadata || metadata,
+  });
+  const embedding = await getEmbedding(indexText, { task: 'document' });
   if (embedding.length > 0) {
-    layers.chroma = await addToChroma(docId, embedding, text, {
+    layers.chroma = await addToChroma(docId, embedding, indexText, {
       source: cleanSource,
       title: cleanTitle,
       docId,
+      embeddingVersion: VECTOR_INDEX_VERSION,
     });
   } else {
     console.warn(`[ingest] no embedding produced for ${docId}; keyword search only`);

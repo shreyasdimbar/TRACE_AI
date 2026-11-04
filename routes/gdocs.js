@@ -162,8 +162,9 @@ async function syncFolder() {
     for (const file of files) {
       const seenModified = storedById.get(file.id);
       if (seenModified && seenModified === file.modifiedTime) {
-        skipped.push({ id: file.id, name: file.name, reason: 'unchanged' });
-        continue;
+        // Force re-ingest for date correction.
+        // skipped.push({ id: file.id, name: file.name, reason: 'unchanged' });
+        // continue;
       }
 
       let text;
@@ -188,6 +189,7 @@ async function syncFolder() {
           googleDocId: file.id,
           createdTime: file.createdTime,
           modifiedTime: file.modifiedTime,
+          date: file.modifiedTime,
           fullLength: text.length,
           link: file.webViewLink,
         },

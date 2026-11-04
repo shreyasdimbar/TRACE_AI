@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
-import { RefreshCw, Clock, Tag, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, AlertTriangle, Lock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { RefreshCw, Clock, Tag, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, AlertTriangle, Lock, Search, FileText } from 'lucide-react';
 import { api } from '../api';
 
 const SOURCE_FILTERS = [
   { label: 'All', value: '' },
   { label: 'Gmail', value: 'gmail' },
   { label: 'Slack', value: 'slack' },
-  { label: 'Docs', value: 'google_docs' },
-  { label: 'Transcript', value: 'transcript' },
+  { label: 'Google Docs', value: 'google_docs' },
+  { label: 'Transcripts', value: 'transcript' },
   { label: 'Manual', value: 'manual' },
 ];
+
+const SOURCE_LABELS = {
+  gmail: 'Gmail',
+  slack: 'Slack',
+  google_docs: 'Google Docs',
+  transcript: 'Transcript',
+  manual: 'Manual',
+  note: 'Manual',
+  document: 'Manual',
+};
 
 const PAGE_SIZE = 20;
 
@@ -27,35 +37,44 @@ function timeAgo(dateStr) {
 export default function FeedPage() {
   const [documents, setDocuments] = useState([]);
   const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const requestIdRef = useRef(0);
 
   const fetchDocs = async (targetPage = page) => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getDocuments(filter, PAGE_SIZE, true, targetPage * PAGE_SIZE);
+      const data = await api.getDocuments(filter, PAGE_SIZE, true, targetPage * PAGE_SIZE, search);
+      if (requestId !== requestIdRef.current) return;
       setDocuments(data.documents || []);
       setTotal(data.total ?? 0);
       setHasMore(Boolean(data.hasMore));
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       // Without this the list renders "No documents found" for an API outage,
       // which reads as an empty corpus rather than a broken connection.
       setDocuments([]);
       setError(err);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDocs(page);
+    const timer = window.setTimeout(() => fetchDocs(page), search.trim() ? 250 : 0);
+    return () => {
+      window.clearTimeout(timer);
+      requestIdRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, page]);
+  }, [filter, page, search]);
 
   // A new filter means a new result set, so return to the first page.
   const changeFilter = (value) => {
@@ -72,13 +91,36 @@ export default function FeedPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header documents-header">
         <div>
-          <div className="page-title">Documents</div>
-          <div className="page-subtitle">Structured knowledge extracted from your integrations</div>
+          <h1 className="page-title">Documents</h1>
+          <div className="page-subtitle">Browse searchable knowledge from your connected sources and team uploads.</div>
         </div>
-        <div className="page-head-actions">
-          <div className="filter-bar">
+      </div>
+
+      <div className="page-body documents-page-body">
+        <div className="documents-toolbar">
+          <div className="documents-search-row">
+            <label className="filter-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                  setSelected(null);
+                }}
+                placeholder="Search document titles"
+                aria-label="Search document titles"
+              />
+            </label>
+            <button className="btn btn-secondary btn-icon" onClick={() => fetchDocs(page)} disabled={loading} aria-label="Refresh documents">
+              <RefreshCw size={16} className={loading ? 'spin' : ''} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="documents-filter-row">
+            <span className="documents-filter-label">Source</span>
             <div className="filter-group" role="group" aria-label="Filter by source">
               {SOURCE_FILTERS.map((f) => (
                 <button
@@ -91,26 +133,35 @@ export default function FeedPage() {
                 </button>
               ))}
             </div>
-            <button className="btn btn-secondary btn-icon" onClick={() => fetchDocs(page)} aria-label="Refresh documents">
-              <RefreshCw size={16} className={loading ? 'spin' : ''} aria-hidden="true" />
-            </button>
           </div>
         </div>
-      </div>
 
-      <div className="page-body">
+        {!error && (
+          <div className="document-results-meta" aria-live="polite">
+            <span><strong>{loading ? '…' : total}</strong> documents</span>
+            {(search.trim() || filter) && (
+              <span className="document-results-scope">
+                {search.trim() && `Matching “${search.trim()}”`}
+                {search.trim() && filter ? ' · ' : ''}
+                {filter && `Source: ${SOURCE_FILTERS.find((source) => source.value === filter)?.label || filter}`}
+              </span>
+            )}
+          </div>
+        )}
         {error ? (
           <div className="empty-state">
             <div className="empty-state-icon" aria-hidden="true">
               {error.status === 401 || error.status === 403 ? <Lock size={26} /> : <AlertTriangle size={26} />}
             </div>
-            <h3>{error.status === 401 ? 'Session expired' : 'Cannot reach the API'}</h3>
+            <h3>{error.status === 401 ? 'Session expired' : error.status === 403 ? 'Access unavailable' : 'Cannot reach the API'}</h3>
             <p>
               {error.status === 401
                 ? 'Sign out and sign in again to load documents.'
-                : 'The documents service did not respond. Check that the backend is running on port 5000.'}
+                : error.status === 403
+                  ? 'Your account does not have permission to view these documents.'
+                  : 'The documents service did not respond. Check that the backend is running on port 5000.'}
             </p>
-            {error.status !== 401 && error.status < 500 && <code className="empty-state-detail">{error.message}</code>}
+            {error.status !== 401 && error.status !== 403 && error.status < 500 && <code className="empty-state-detail">{error.message}</code>}
           </div>
         ) : loading ? (
           <div className="doc-list">
@@ -120,9 +171,13 @@ export default function FeedPage() {
           </div>
         ) : documents.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon" aria-hidden="true">📭</div>
-            <h3>No documents found</h3>
-            <p>{filter ? 'No documents match this source. Try another filter.' : 'Ingest some data to get started.'}</p>
+            <div className="empty-state-icon" aria-hidden="true"><FileText size={24} /></div>
+            <h3>{search.trim() ? 'No matching documents' : 'No documents found'}</h3>
+            <p>
+              {search.trim()
+                ? `No titles match “${search.trim()}”. Try another search.`
+                : filter ? 'No documents match this source. Try another filter.' : 'Ingest some data to get started.'}
+            </p>
           </div>
         ) : (
           <>
@@ -136,7 +191,9 @@ export default function FeedPage() {
                     className={`doc-card liquid-sweep ${isExpanded ? 'is-open' : ''}`}
                     role="button"
                     tabIndex={0}
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} document: ${doc.title}`}
                     aria-expanded={isExpanded}
+                    aria-controls={`document-detail-${doc._id}`}
                     onClick={() => {
                       // A mouseup that ends a text selection still fires a `click`,
                       // which bubbled up here and closed the card mid-selection —
@@ -156,7 +213,9 @@ export default function FeedPage() {
                   >
                     <div className="doc-main">
                       <div className="doc-rail">
-                        <span className={`source-badge ${doc.source}`}>{doc.source}</span>
+                              <span className={`source-badge ${doc.source}`}>
+                                {SOURCE_LABELS[doc.source] || doc.source?.replace(/_/g, ' ') || 'Source'}
+                              </span>
                       </div>
 
                       <div className="doc-body">
@@ -194,7 +253,7 @@ export default function FeedPage() {
                          its children into horizontal flex items — the giant
                          ellipse outline across the card. The panel gets its own
                          block-level class. */
-                      <div className="doc-detail">
+                      <div className="doc-detail" id={`document-detail-${doc._id}`}>
                         <div className="doc-split">
                           <div>
                             <div className="doc-panel-label">AI Reasoning</div>

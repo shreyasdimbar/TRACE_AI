@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowRight, Mail, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { ArrowRight, Mail, Lock, User, Eye, EyeOff, AlertCircle, FileText, Zap } from 'lucide-react';
+import { api } from '../api';
 
 export default function LoginPage({ onLogin, onNavigate }) {
   const [mode, setMode] = useState('login');
@@ -10,25 +11,15 @@ export default function LoginPage({ onLogin, onNavigate }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const API_BASE = 'http://localhost:5000';
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const endpoint = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
-      const body = mode === 'register' ? { name, email, password } : { email, password };
-
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Authentication failed');
+      const data = mode === 'register'
+        ? await api.register(name, email, password)
+        : await api.login(email, password);
 
       localStorage.setItem('trace_token', data.token);
       localStorage.setItem('trace_user', JSON.stringify(data.user));
@@ -41,9 +32,9 @@ export default function LoginPage({ onLogin, onNavigate }) {
   };
 
   const PERKS = [
-    { glyph: '🔒', text: 'JWT-secured authentication' },
-    { glyph: '🎓', text: 'Exclusive to @walchandsangli.ac.in' },
-    { glyph: '⚡', text: 'AI-powered knowledge extraction' },
+    { glyph: <Lock size={15} />, text: 'JWT-secured authentication' },
+    { glyph: <User size={15} />, text: 'Workspace access for Nexora Technologies' },
+    { glyph: <Zap size={15} />, text: 'Source-grounded knowledge search' },
   ];
 
   return (
@@ -62,9 +53,10 @@ export default function LoginPage({ onLogin, onNavigate }) {
         <div className="auth-brand">
           <div className="auth-brand-inner">
             <div className="auth-brand-lockup">
-              <div className="logo-mark" style={{ width: 38, height: 38, fontSize: 19 }} aria-hidden="true">~</div>
+              <div className="logo-mark" style={{ width: 38, height: 38 }} aria-hidden="true"><FileText size={19} /></div>
               <span style={{ fontWeight: 800, fontSize: 23, letterSpacing: '-0.03em' }}>Trace.AI</span>
             </div>
+            <div className="auth-workspace-label">Nexora Technologies workspace</div>
 
             <h2 className="auth-headline">
               Your organization's<br />
@@ -73,7 +65,7 @@ export default function LoginPage({ onLogin, onNavigate }) {
 
             <p className="auth-blurb">
               Query across Gmail, Slack, docs, and transcripts with AI-powered reasoning.
-              Every answer comes with full source citations.
+              Answers grounded in your organization's information include source citations.
             </p>
 
             <div className="auth-perks">
@@ -96,8 +88,8 @@ export default function LoginPage({ onLogin, onNavigate }) {
               </h2>
               <p>
                 {mode === 'login'
-                  ? 'Sign in with your Walchand email to continue'
-                  : 'Register with your @walchandsangli.ac.in email'}
+                  ? 'Sign in to the Nexora Technologies workspace'
+                  : 'Use your organization email to register'}
               </p>
             </div>
 
@@ -120,7 +112,7 @@ export default function LoginPage({ onLogin, onNavigate }) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Pratap Dabhade"
+                    placeholder="Your name"
                     autoComplete="name"
                     required
                   />
@@ -137,7 +129,7 @@ export default function LoginPage({ onLogin, onNavigate }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="pratap.dabhade@walchandsangli.ac.in"
+                  placeholder="Enter your work email"
                   autoComplete="email"
                   required
                 />
@@ -171,9 +163,9 @@ export default function LoginPage({ onLogin, onNavigate }) {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary auth-submit" disabled={loading}>
+              <button type="submit" className="btn btn-primary auth-submit" disabled={loading} aria-busy={loading}>
                 {loading ? (
-                  <div className="spinner border-spinner" />
+                  <><div className="spinner border-spinner" aria-hidden="true" /> <span>{mode === 'login' ? 'Signing in…' : 'Creating account…'}</span></>
                 ) : (
                   <>{mode === 'login' ? 'Sign In' : 'Create Account'} <ArrowRight size={16} aria-hidden="true" /></>
                 )}

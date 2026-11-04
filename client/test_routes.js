@@ -77,7 +77,8 @@ test('unknown paths are not known routes', () => {
   }
 });
 
-test('default authed route is a protected route', () => {
+test('Ask Anything is the default page after sign-in', () => {
+  assert.strictEqual(DEFAULT_AUTHED_ROUTE, '/ask');
   assert.ok(isProtectedRoute(DEFAULT_AUTHED_ROUTE));
 });
 

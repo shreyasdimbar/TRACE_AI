@@ -31,7 +31,7 @@ export const PROTECTED_ROUTES = ['/dashboard', '/ask', '/documents', '/ingest', 
 export const ALL_ROUTES = [...PUBLIC_ROUTES, ...PROTECTED_ROUTES];
 
 /** Where a user lands after signing in, absent a remembered destination. */
-export const DEFAULT_AUTHED_ROUTE = '/dashboard';
+export const DEFAULT_AUTHED_ROUTE = '/ask';
 
 const INTENDED_KEY = 'trace_intended';
 

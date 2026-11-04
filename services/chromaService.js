@@ -183,7 +183,10 @@ async function queryChroma(embedding, nResults = 6) {
     const res = await col.query({
       queryEmbeddings: [embedding],
       nResults,
-      include: ['documents', 'metadatas', 'distances'],
+      // The Ask route dereferences Mongo IDs for full, current evidence. Avoid
+      // returning every stored vector document over the wire when it only needs
+      // ranked IDs and distances.
+      include: ['metadatas', 'distances'],
     });
 
     const ids = res?.ids?.[0] || [];

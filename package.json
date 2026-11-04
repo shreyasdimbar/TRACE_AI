@@ -11,6 +11,7 @@
     "dev": "nodemon server.js",
     "reset": "node reset.js",
     "test:smoke": "node test_smoke.js",
+    "test:ask": "node test_ask.js",
     "test:auth": "node test_auth.js",
     "test:datastore": "node test_datastore.js",
     "test:scheduler": "node test_scheduler.js",
