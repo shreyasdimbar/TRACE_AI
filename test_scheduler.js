@@ -140,7 +140,11 @@ function makeSource(name, { ms = 200, result = null, throwOn = false } = {}) {
     // The manual run is deliberately long: runOnce walks every registered
     // source first (coalesce alone is 250ms), so a short window would make
     // this assertion depend on scheduling luck rather than on the gate.
-    const { calls, run } = makeSource('mutual', { ms: 1200 });
+    //
+    // Hold the manual run long enough (> the accumulated stagger between
+    // registered sources, up to ~6s) that the cron tick for this source still
+    // lands while the gate is held.
+    const { calls, run } = makeSource('mutual', { ms: 8000 });
     scheduler.addSource('mutual', run);
 
     const manual = scheduler.runExclusive('mutual', run);
